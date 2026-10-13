@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eco-Rebuild: ODS 9 - Innovación e Infraestructura Sostenible</title>
+  <meta name="description" content="Juego 3D de simulación y gestión en tercera persona enfocado en el ODS 9: Industria, Innovación e Infraestructura. Recolecta chatarra, extrae materiales y transforma la región.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <!-- 3D Canvas Container -->
+  <div id="game-container">
+    <canvas id="webgl-canvas"></canvas>
+  </div>
+
+  <!-- HUD Overlay -->
+  <div id="hud">
+    <!-- Top Left: Region Metrics (ODS 9 Indicators) -->
+    <header class="hud-panel ods-panel" id="ods-metrics">
+      <div class="ods-badge">
+        <span class="ods-number">ODS 9</span>
+        <div class="ods-badge-text">
+          <span class="ods-sub">INDUSTRIA, INNOVACIÓN</span>
+          <span class="ods-main">E INFRAESTRUCTURA</span>
+        </div>
+      </div>
+      
+      <div class="metrics-grid">
+        <div class="metric-item" title="Nivel de recuperación ambiental y limpieza de la región">
+          <span class="metric-label">Descontaminación</span>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill clean-fill" id="metric-clean-bar" style="width: 10%;"></div>
+          </div>
+          <span class="metric-val" id="metric-clean-val">10%</span>
+        </div>
+
+        <div class="metric-item" title="Porcentaje de conectividad digital en aldeas y zonas aisladas">
+          <span class="metric-label">Conectividad Digital</span>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill tech-fill" id="metric-tech-bar" style="width: 0%;"></div>
+          </div>
+          <span class="metric-val" id="metric-tech-val">0%</span>
+        </div>
+
+        <div class="metric-item" title="Infraestructura verde e industrial operativa">
+          <span class="metric-label">Infraestructura Verde</span>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill infra-fill" id="metric-infra-bar" style="width: 5%;"></div>
+          </div>
+          <span class="metric-val" id="metric-infra-val">5%</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Top Right: Active Mission Tracker -->
+    <div class="hud-panel mission-tracker" id="active-mission-card">
+      <div class="tracker-header">
+        <span class="tracker-tag">PROYECTO ACTIVO</span>
+        <button id="btn-toggle-laptop" class="btn-ghost-sm" title="Abrir terminal de pedidos (Tecla T o en tu laptop)">[T] Pedidos</button>
+      </div>
+      <h3 id="current-mission-title" class="mission-title">Sin misión seleccionada</h3>
+      <p id="current-mission-desc" class="mission-desc">Dirígete a la laptop de tu taller para aceptar un pedido de la comunidad.</p>
+      
+      <div id="current-mission-reqs" class="mission-reqs">
+        <!-- Injected dynamically -->
+      </div>
+    </div>
+
+    <!-- Center Interaction Prompt -->
+    <div id="interaction-prompt" class="interaction-prompt hidden">
+      <div class="key-badge">E</div>
+      <div class="prompt-info">
+        <span id="prompt-action" class="prompt-action">Interactuar</span>
+        <span id="prompt-target" class="prompt-target">Terminal</span>
+      </div>
+    </div>
+
+    <!-- Scavenge Minigame / Progress Bar overlay -->
+    <div id="scavenge-overlay" class="scavenge-overlay hidden">
+      <div class="scavenge-box">
+        <div class="scavenge-spinner"></div>
+        <h4 id="scavenge-title">Desarmando Chatarra...</h4>
+        <div class="progress-bar-wrap big">
+          <div id="scavenge-progress-bar" class="progress-bar-fill" style="width: 0%;"></div>
+        </div>
+        <span class="scavenge-hint">Mantén presionado o espera la extracción limpia</span>
+      </div>
+    </div>
+
+    <!-- Bottom Left: Player Quick Inventory Status -->
+    <div class="hud-panel inventory-quickbar" id="inventory-bar">
+      <div class="quickbar-header">
+        <span class="bar-title">📦 Almacén Móvil</span>
+        <button id="btn-toggle-inventory" class="btn-ghost-sm">[I] Mochila</button>
+      </div>
+      <div class="materials-row" id="quick-materials">
+        <!-- Material badges injected dynamically -->
+      </div>
+    </div>
+
+    <!-- Bottom Right: Controls & Audio Quick Controls -->
+    <div class="hud-panel controls-helper" id="controls-helper">
+      <div class="controls-grid">
+        <span class="key-combo"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Moverse</span>
+        <span class="key-combo"><kbd>Shift</kbd> Correr</span>
+        <span class="key-combo"><kbd>Espacio</kbd> Saltar</span>
+        <span class="key-combo"><kbd>E</kbd> Interactuar</span>
+        <span class="key-combo"><kbd>Click + Arrastrar</kbd> Girar Cámara</span>
+      </div>
+      <div class="sound-controls">
+        <button id="btn-sound-toggle" class="btn-icon" title="Activar/Desactivar Sonido">
+          <span id="sound-icon">🔊</span> Sonido
+        </button>
+        <button id="btn-help-toggle" class="btn-icon" title="Guía y Lore de ODS 9">
+          <span>ℹ️</span> Ayuda
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Banner -->
+  <div id="notifications-container"></div>
+
+  <!-- MODAL: Laptop / Terminal de Pedidos (Eco-OS) -->
+  <div id="laptop-modal" class="modal-backdrop hidden">
+    <div class="terminal-window">
+      <div class="terminal-titlebar">
+        <div class="traffic-lights">
+          <span class="light red"></span>
+          <span class="light yellow"></span>
+          <span class="light green"></span>
+        </div>
+        <div class="terminal-title">🌐 ECO-OS v4.9 :: Red de Solicitudes y Misiones ODS 9</div>
+        <button class="modal-close-btn" id="btn-close-laptop">&times;</button>
+      </div>
+
+      <div class="terminal-body">
+        <div class="terminal-sidebar">
+          <div class="sidebar-header">
+            <h4>Bandeja de Proyectos</h4>
+            <span class="counter" id="completed-counter">0/5 Completadas</span>
+          </div>
+          <ul id="missions-list" class="missions-nav">
+            <!-- Missions tabs injected dynamically -->
+          </ul>
+        </div>
+
+        <div class="terminal-content" id="mission-detail-view">
+          <!-- Injected dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Taller / Máquinas Extractoras -->
+  <div id="machine-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="machine-badge-title">
+          <span class="machine-icon-large" id="modal-machine-icon">⚙️</span>
+          <div>
+            <h3 id="modal-machine-name">Extractora Hidrometalúrgica</h3>
+            <span class="subtitle" id="modal-machine-sub">Refinado limpio sin ácidos contaminantes</span>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="btn-close-machine">&times;</button>
+      </div>
+
+      <div class="modal-content">
+        <!-- Machine Status & Animated Chamber -->
+        <div class="machine-status-card">
+          <div class="status-indicator">
+            <span class="status-dot" id="machine-status-dot"></span>
+            <span id="machine-status-text">Listo para procesar</span>
+          </div>
+          <div class="processing-visual" id="processing-visual">
+            <div class="laser-scanner"></div>
+            <span id="visual-scrap-icon">📱</span>
+            <div class="arrow-transform">➔</div>
+            <span id="visual-refined-icon">✨</span>
+          </div>
+          <div class="progress-bar-wrap big">
+            <div id="machine-progress-bar" class="progress-bar-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- Recipes Available for this machine -->
+        <div class="recipes-section">
+          <h4>Fórmulas de Reciclaje Disponibles</h4>
+          <div id="machine-recipes-list" class="recipes-grid">
+            <!-- Recipe cards injected dynamically -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Inventario Completo -->
+  <div id="inventory-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="title-with-icon">
+          <span class="icon-lg">🎒</span>
+          <div>
+            <h3>Inventario & Depósito de Materiales</h3>
+            <span class="subtitle">Desarmado de basura y metales purificados</span>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="btn-close-inventory">&times;</button>
+      </div>
+
+      <div class="modal-content">
+        <div class="inventory-tabs">
+          <button class="tab-btn active" data-tab="scrap">Chatarra Recolectada</button>
+          <button class="tab-btn" data-tab="refined">Materiales Puros / Tecnológicos</button>
+        </div>
+
+        <div id="inventory-grid" class="inventory-grid">
+          <!-- Injected items -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Información y Guía ODS 9 -->
+  <div id="help-modal" class="modal-backdrop hidden">
+    <div class="modal-card max-w-lg">
+      <div class="modal-header">
+        <div class="title-with-icon">
+          <span class="icon-lg">🌱</span>
+          <div>
+            <h3>Guía de Juego: Transformando el Territorio</h3>
+            <span class="subtitle">ODS 9: Industria, Innovación e Infraestructura</span>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="btn-close-help">&times;</button>
+      </div>
+
+      <div class="modal-content help-content">
+        <div class="help-section">
+          <h4>🎯 Objetivo del Juego</h4>
+          <p>La región sufre de contaminación severa por vertederos industriales y aislamiento de sus comunidades. Tu misión es transformar este territorio en un ecosistema tecnológico sustentable utilizando economía circular: <strong>los materiales no se compran, se recuperan de la chatarra</strong>.</p>
+        </div>
+
+        <div class="help-steps">
+          <div class="step-card">
+            <span class="step-num">1</span>
+            <div>
+              <strong>Revisa tu Laptop (Tecla T o en el Taller):</strong>
+              <p>Acepta pedidos comunitarios como antenas de telecomunicación rural, sensores IoT ecológicos o pavimentación con plástico reciclado.</p>
+            </div>
+          </div>
+
+          <div class="step-card">
+            <span class="step-num">2</span>
+            <div>
+              <strong>Recolecta en los Vertederos:</strong>
+              <p>Explora el mapa y acércate a los cúmulos de chatarra (celulares viejos, neumáticos, cables, chatarra metálica) y presiona <kbd>E</kbd> para desarmar.</p>
+            </div>
+          </div>
+
+          <div class="step-card">
+            <span class="step-num">3</span>
+            <div>
+              <strong>Procesa en las Extractoras:</strong>
+              <p>Usa la <em>Extractora Electrónica</em> (cobre/oro), la <em>Despolimerizadora</em> (caucho/polímero) y la <em>Fundidora Solar</em> (acero/litio) para obtener insumos puros.</p>
+            </div>
+          </div>
+
+          <div class="step-card">
+            <span class="step-num">4</span>
+            <div>
+              <strong>Implementa y Observa la Transformación:</strong>
+              <p>Entrega el proyecto. Verás cómo se disipa el smog, florece la vegetación y se erigen infraestructuras sostenibles activas en el mundo 3D.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="help-section footer-note">
+          <p>💡 <em>Tip:</em> Presiona <kbd>Shift</kbd> mientras caminas para correr rápidamente por el mapa.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VICTORY / MISSION FINISHED BANNER -->
+  <div id="celebration-overlay" class="celebration-overlay hidden">
+    <div class="celebration-card">
+      <div class="celebration-sparkles">🌟</div>
+      <h2 id="celebration-title">¡PROYECTO IMPLEMENTADO CON ÉXITO!</h2>
+      <p id="celebration-desc">La región avanza hacia la sostenibilidad y conectividad universal.</p>
+      <div class="impact-stats" id="celebration-stats"></div>
+      <button id="btn-continue-celebration" class="btn-primary-large">Continuar Construyendo</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
